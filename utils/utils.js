@@ -3,7 +3,7 @@ const getTodaysDay = () => {
     timeZone: 'Europe/Moscow',
   });
   const [day] = moscowTime.split('.');
-  return day;
+  return parseInt(day, 10).toString();
 };
 
 module.exports = getTodaysDay;
