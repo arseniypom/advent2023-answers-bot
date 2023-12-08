@@ -152,6 +152,7 @@ bot.on('message', async (ctx) => {
       return;
     }
 
+    const taskNumber = user.waitingForAnswerNumber;
     const todaysDate = getTodaysDay();
     if (taskNumber) {
       if (taskNumber.split('.')[0] !== todaysDate) {
@@ -204,8 +205,8 @@ bot.on('message', async (ctx) => {
       },
     );
   } catch (error) {
-    console.error('Ошибка при обработке команды Отправить ответ:', error);
-    logger.error('Ошибка при обработке команды Отправить ответ: %o', error);
+    console.error('Ошибка при обработке текстового сообщения:', error);
+    logger.error('Ошибка при обработке текстового сообщения: %o', error);
     sendAlertToAdmin(bot, error, ctx?.update?.update_id);
     await ctx.reply('Простите, произошла ошибка, уже разбираюсь.');
   }
