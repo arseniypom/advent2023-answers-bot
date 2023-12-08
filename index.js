@@ -44,11 +44,24 @@ const getAnswer = async (ctx) => {
   await ctx.answerCallbackQuery();
 };
 
+const dropWaitingForAnswer = async (ctx) => {
+  const user = await User.findOne({ telegramId: ctx.from.id });
+
+  if (user) {
+    await User.findOneAndUpdate(
+      { telegramId: user.telegramId },
+      { waitingForAnswerNumber: '', updatedAt: Date.now() },
+    );
+  }
+};
+
 const bot = new Bot(process.env.BOT_API_KEY);
 bot.use(hydrate());
 
 bot.command('start', async (ctx) => {
   const inlineKeyboard = new InlineKeyboard().text('Начать', 'start-advent');
+
+  await dropWaitingForAnswer(ctx);
 
   await ctx.reply(
     `Привет!\nЯ - Advent Coding Bot от <a href='https://t.me/pomazkovjs' target='_blank'>Pomazkov JS</a> 🤖\nЯ принимаю ответы на задачи, которые публикуются в <a href='https://t.me/+ChyzgRT89C0wNGYy' target='_blank'>этом тг-канале</a>.\nНажми на кнопку <b>'Начать'</b>, чтобы зарегистрироваться и принять\nучастие ⬇️`,
@@ -62,6 +75,7 @@ bot.command('start', async (ctx) => {
 
 bot.command('support', async (ctx) => {
   try {
+    await dropWaitingForAnswer(ctx);
     const user = await User.findOne({ telegramId: ctx.from.id });
 
     if (!user) {
@@ -101,6 +115,7 @@ bot.command('support', async (ctx) => {
 });
 
 bot.command('faq', async (ctx) => {
+  await dropWaitingForAnswer(ctx);
   await ctx.reply(faqMessage, {
     parse_mode: 'HTML',
     disable_web_page_preview: true,
@@ -108,6 +123,7 @@ bot.command('faq', async (ctx) => {
 });
 
 bot.command('rules', async (ctx) => {
+  await dropWaitingForAnswer(ctx);
   await ctx.reply(rulesMessage);
 });
 
@@ -342,12 +358,7 @@ bot.callbackQuery('cancel-support', async (ctx) => {
   });
 
   try {
-    const user = await User.findOne({ telegramId: ctx.from.id });
-
-    await User.findOneAndUpdate(
-      { telegramId: user.telegramId },
-      { waitingForSupportRequest: false, updatedAt: Date.now() },
-    );
+    await dropWaitingForAnswer(ctx);
     await ctx.callbackQuery.message.editText('Запрос отменён  ✅', {
       reply_markup: emptyKeyboard,
     });
@@ -368,12 +379,7 @@ bot.callbackQuery('cancel-answer', async (ctx) => {
   });
 
   try {
-    const user = await User.findOne({ telegramId: ctx.from.id });
-
-    await User.findOneAndUpdate(
-      { telegramId: user.telegramId },
-      { waitingForAnswerNumber: '', updatedAt: Date.now() },
-    );
+    await dropWaitingForAnswer(ctx);
     await ctx.callbackQuery.message.editText('Ввод отменён ✅', {
       reply_markup: emptyKeyboard,
     });
