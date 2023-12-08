@@ -160,7 +160,7 @@ bot.on('message', async (ctx) => {
 
       await bot.api.sendMessage(
         process.env.ADMIN_TELEGRAM_ID,
-        `<b>❗Обращение в поддержку</b>\nПользователь: @${newRequest.userName}\nТекст: ${newRequest.text}`,
+        `<b>❗Обращение в поддержку</b>\nПользователь: @${newRequest.userName}\nTgId: ${user.telegramId}\nТекст: ${newRequest.text}`,
         {
           parse_mode: 'HTML',
         },
