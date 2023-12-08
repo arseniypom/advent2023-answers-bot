@@ -14,6 +14,7 @@ const User = require('./models/User');
 const SupportRequest = require('./models/SupportRequest');
 
 const sendAlertToAdmin = require('./utils/alert');
+const getTodaysDay = require('./utils/utils');
 const faqMessage = require('./consts/faq');
 const rulesMessage = require('./consts/rules');
 
@@ -85,8 +86,7 @@ bot.command('rules', async (ctx) => {
 });
 
 bot.hears('Отправить ответ', async (ctx) => {
-  const today = new Date();
-  const todaysDate = today.getDate().toString();
+  const todaysDate = getTodaysDay();
 
   const inlineKeyboard = new InlineKeyboard()
     .text('1', `${todaysDate}.1`)
@@ -152,9 +152,7 @@ bot.on('message', async (ctx) => {
       return;
     }
 
-    const taskNumber = user.waitingForAnswerNumber;
-    const today = new Date();
-    const todaysDate = today.getDate().toString();
+    const todaysDate = getTodaysDay();
     if (taskNumber) {
       if (taskNumber.split('.')[0] !== todaysDate) {
         await User.findOneAndUpdate(
