@@ -18,6 +18,32 @@ const getTodaysDay = require('./utils/utils');
 const faqMessage = require('./consts/faq');
 const rulesMessage = require('./consts/rules');
 
+const getAnswer = async (ctx) => {
+  const todaysDate = getTodaysDay();
+
+  const inlineKeyboard = new InlineKeyboard()
+    .text('1️⃣', `${todaysDate}.1`)
+    .text('2️⃣', `${todaysDate}.2`);
+
+  if (!ctx.callbackQuery) {
+    await ctx.reply(
+      `Сегодня я принимаю ответ на задачи от ${todaysDate} декабря. На какую задачу хочешь ответить?`,
+      {
+        reply_markup: inlineKeyboard,
+      },
+    );
+    return;
+  }
+
+  await ctx.callbackQuery.message.editText(
+    `Сегодня я принимаю ответ на задачи от ${todaysDate} декабря. На какую задачу хочешь ответить?`,
+    {
+      reply_markup: inlineKeyboard,
+    },
+  );
+  await ctx.answerCallbackQuery();
+};
+
 const bot = new Bot(process.env.BOT_API_KEY);
 bot.use(hydrate());
 
@@ -25,7 +51,7 @@ bot.command('start', async (ctx) => {
   const inlineKeyboard = new InlineKeyboard().text('Начать', 'start-advent');
 
   await ctx.reply(
-    `Привет!\nЯ - Advent Coding Bot от\n<a href='https://t.me/pomazkovjs' target='_blank'>Pomazkov JS</a> 🤖\nЯ принимаю ответы на задачи, которые публикуются здесь: <i>ссылка</i>\nНажми на кнопку 'Начать', чтобы зарегистрироваться и принять участие ⬇️`,
+    `Привет!\nЯ - Advent Coding Bot от <a href='https://t.me/pomazkovjs' target='_blank'>Pomazkov JS</a> 🤖\nЯ принимаю ответы на задачи, которые публикуются в <a href='https://t.me/+ChyzgRT89C0wNGYy' target='_blank'>этом тг-канале</a>.\nНажми на кнопку <b>'Начать'</b>, чтобы зарегистрироваться и принять\nучастие ⬇️`,
     {
       parse_mode: 'HTML',
       disable_web_page_preview: true,
@@ -85,20 +111,8 @@ bot.command('rules', async (ctx) => {
   await ctx.reply(rulesMessage);
 });
 
-bot.hears('Отправить ответ', async (ctx) => {
-  const todaysDate = getTodaysDay();
-
-  const inlineKeyboard = new InlineKeyboard()
-    .text('1', `${todaysDate}.1`)
-    .text('2', `${todaysDate}.2`);
-
-  await ctx.reply(
-    `Сегодня я принимаю ответ на задачи от ${todaysDate} декабря. На какую задачу хочешь ответить?`,
-    {
-      reply_markup: inlineKeyboard,
-    },
-  );
-});
+bot.hears('Отправить ответ', getAnswer);
+bot.callbackQuery('back', getAnswer);
 
 bot.on('message', async (ctx) => {
   const messageText = ctx.message.text;
@@ -108,10 +122,7 @@ bot.on('message', async (ctx) => {
 
     if (!user) {
       await ctx.reply(
-        `Похоже, ты ещё не зарегистрирован(а) для участия в Advent Coding. Поскольку только зарегистрирванные пользователи могут запрашивать поддержку через бота, зарегистируйся (нажми /start для регистрации) или напиши свой вопрос в <a href='https://t.me/+Hx6RaBT4Trw3ZjM6' target='_blank'>чате</a>`,
-        {
-          parse_mode: 'HTML',
-        },
+        `Похоже, ты ещё не зарегистрирован(а) для участия в Advent Coding 🎄\nЧтобы зарегистрироваться в один клик, нажми /start 🙂`,
       );
       return;
     }
@@ -155,42 +166,40 @@ bot.on('message', async (ctx) => {
     const taskNumber = user.waitingForAnswerNumber;
     const todaysDate = getTodaysDay();
     if (taskNumber) {
-      if (taskNumber.split('.')[0] !== todaysDate) {
-        await User.findOneAndUpdate(
-          { telegramId: ctx.from.id },
+      const updatedUser = await User.findOneAndUpdate(
+        { telegramId: ctx.from.id },
+        {
+          answers: {
+            ...user.answers,
+            [taskNumber]: messageText,
+          },
+          waitingForAnswerNumber: '',
+          updatedAt: Date.now(),
+        },
+        { new: true },
+      );
+
+      const answeredTwoQuestions =
+        !!updatedUser.answers[`${todaysDate}.1`] &&
+        !!updatedUser.answers[`${todaysDate}.2`];
+
+      if (answeredTwoQuestions && todaysDate !== '18') {
+        await ctx.reply(
+          `Ответ сохранен ✅\nНа сегодня всё, ответы на сегодняшние задачи, а также новые задачи будут завтра в <a href='https://t.me/+ChyzgRT89C0wNGYy' target='_blank'>тг-канале</a> ✨`,
           {
-            waitingForAnswerNumber: '',
-            updatedAt: Date.now(),
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
           },
         );
+      } else if (answeredTwoQuestions && todaysDate === '18') {
         await ctx.reply(
-          `Сегодня ${todaysDate} декабря и ответ на задачу ${taskNumber} я уже принять не могу :(`,
-        );
-        return;
-      }
-      if (user.answers[taskNumber]) {
-        await User.findOneAndUpdate(
-          { telegramId: ctx.from.id },
+          `Ответ сохранен ✅\n Это был последний день челленджа! Ответы на сегодняшние задачи будут завтра в <a href='https://t.me/+ChyzgRT89C0wNGYy' target='_blank'>тг-канале</a>, и совсем скоро вы узнаете о результатах и 🔥`,
           {
-            waitingForAnswerNumber: '',
-            updatedAt: Date.now(),
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
           },
-        );
-        await ctx.reply(
-          `Ответ на задачу ${taskNumber} уже был принят, повторно отправить или изменить ответ нельзя`,
         );
       } else {
-        await User.findOneAndUpdate(
-          { telegramId: ctx.from.id },
-          {
-            answers: {
-              ...user.answers,
-              [taskNumber]: messageText,
-            },
-            waitingForAnswerNumber: '',
-            updatedAt: Date.now(),
-          },
-        );
         await ctx.reply('Ответ сохранен ✅');
       }
 
@@ -212,14 +221,55 @@ bot.on('message', async (ctx) => {
   }
 });
 
-bot.callbackQuery(/(7|8|9|1[0-8])\.(1|2)/, async (ctx) => {
-  const callbackData = ctx.callbackQuery.data;
+bot.callbackQuery(/(8|9|1[0-8])\.(1|2)/, async (ctx) => {
+  const taskNumber = ctx.callbackQuery.data;
+  const todaysDate = getTodaysDay();
 
   try {
+    const user = await User.findOne({ telegramId: ctx.from.id });
+
+    if (taskNumber.split('.')[0] !== todaysDate) {
+      await User.findOneAndUpdate(
+        { telegramId: ctx.from.id },
+        {
+          waitingForAnswerNumber: '',
+          updatedAt: Date.now(),
+        },
+      );
+      const emptyKeyboard = new InlineKeyboard();
+      await ctx.callbackQuery.message.editText(
+        `Сегодня ${todaysDate} декабря и ответ на задачу ${taskNumber} я уже принять не могу :(`,
+        {
+          reply_markup: emptyKeyboard,
+        },
+      );
+      await ctx.answerCallbackQuery();
+      return;
+    }
+    if (user.answers[taskNumber]) {
+      await User.findOneAndUpdate(
+        { telegramId: ctx.from.id },
+        {
+          waitingForAnswerNumber: '',
+          updatedAt: Date.now(),
+        },
+      );
+
+      const inlineKeyboard = new InlineKeyboard().text('⬅️ Назад', `back`);
+      await ctx.callbackQuery.message.editText(
+        `Ответ на задачу ${taskNumber} уже был принят, повторно отправить или изменить ответ нельзя`,
+        {
+          reply_markup: inlineKeyboard,
+        },
+      );
+      await ctx.answerCallbackQuery();
+      return;
+    }
+
     await User.findOneAndUpdate(
       { telegramId: ctx.from.id },
       {
-        waitingForAnswerNumber: callbackData,
+        waitingForAnswerNumber: taskNumber,
         updatedAt: Date.now(),
       },
     );
@@ -229,14 +279,14 @@ bot.callbackQuery(/(7|8|9|1[0-8])\.(1|2)/, async (ctx) => {
       'cancel-answer',
     );
 
-    await ctx.reply(`Напиши ответ на задачу ${callbackData}`, {
+    await ctx.reply(`Напиши ответ на задачу ${taskNumber}`, {
       reply_markup: inlineKeyboard,
     });
 
     await ctx.answerCallbackQuery();
   } catch (error) {
-    console.error(`Ошибка при обработке коллбэка ${callbackData}:`, error);
-    logger.error(`Ошибка при обработке команды ${callbackData}: %o`, error);
+    console.error(`Ошибка при обработке коллбэка ${taskNumber}:`, error);
+    logger.error(`Ошибка при обработке команды ${taskNumber}: %o`, error);
     logger.error('Ошибка при обработке команды Отправить ответ: %o', error);
     sendAlertToAdmin(bot, error, ctx?.update?.update_id);
     await ctx.reply('Простите, произошла ошибка, уже разбираюсь.');
@@ -248,7 +298,7 @@ bot.callbackQuery('start-advent', async (ctx) => {
 
   try {
     const statusMessage = await ctx.reply('Секунду...');
-
+    let startPhrase;
     const userInDB = await User.findOne({ telegramId: ctx.from.id });
     if (!userInDB) {
       const newUser = new User({
@@ -257,20 +307,22 @@ bot.callbackQuery('start-advent', async (ctx) => {
         userName: username,
       });
       await newUser.save();
-      await statusMessage.editText('Зарегистрировал, добро пожаловать! 🙌');
+      startPhrase = 'Зарегистрировал, добро пожаловать! 🙌';
     } else {
       await User.findOneAndUpdate(
         { telegramId: ctx.from.id },
         { hasBlockedBot: false, updatedAt: Date.now() },
       );
-      await statusMessage.editText('Нашел и обновил данные в базе 👌');
+      startPhrase = 'Нашел и обновил данные в базе 👌';
     }
 
+    statusMessage.delete();
     const keyboard = new Keyboard().text('Отправить ответ').row().resized();
     await ctx.reply(
-      `Теперь тебе доступно участие в челлендже. Чтобы отправить ответ на задачу, нажми 'Отправить ответ' в меню`,
+      `${startPhrase}\n\nТеперь тебе доступно участие в челлендже 🔥\nЧтобы отправить ответ на задачу, нажми <b>'Отправить ответ'</b> в меню\n<i>(если ты с компа, клавиатура может не открыться автоматически, нажми на кнопку с квадратиками справа)</i>`,
       {
         reply_markup: keyboard,
+        parse_mode: 'HTML',
       },
     );
 
@@ -284,7 +336,10 @@ bot.callbackQuery('start-advent', async (ctx) => {
 });
 
 bot.callbackQuery('cancel-support', async (ctx) => {
-  const statusMessage = await ctx.reply('Секунду...');
+  const emptyKeyboard = new InlineKeyboard();
+  await ctx.callbackQuery.message.editText('Отменяю...', {
+    reply_markup: emptyKeyboard,
+  });
 
   try {
     const user = await User.findOne({ telegramId: ctx.from.id });
@@ -293,7 +348,9 @@ bot.callbackQuery('cancel-support', async (ctx) => {
       { telegramId: user.telegramId },
       { waitingForSupportRequest: false, updatedAt: Date.now() },
     );
-    await statusMessage.editText('Запрос отменён ✅');
+    await ctx.callbackQuery.message.editText('Запрос отменён  ✅', {
+      reply_markup: emptyKeyboard,
+    });
 
     await ctx.answerCallbackQuery();
   } catch (error) {
@@ -305,7 +362,10 @@ bot.callbackQuery('cancel-support', async (ctx) => {
 });
 
 bot.callbackQuery('cancel-answer', async (ctx) => {
-  const statusMessage = await ctx.reply('Секунду...');
+  const emptyKeyboard = new InlineKeyboard();
+  await ctx.callbackQuery.message.editText('Отменяю...', {
+    reply_markup: emptyKeyboard,
+  });
 
   try {
     const user = await User.findOne({ telegramId: ctx.from.id });
@@ -314,7 +374,9 @@ bot.callbackQuery('cancel-answer', async (ctx) => {
       { telegramId: user.telegramId },
       { waitingForAnswerNumber: '', updatedAt: Date.now() },
     );
-    await statusMessage.editText('Ввод отменён ✅');
+    await ctx.callbackQuery.message.editText('Ввод отменён ✅', {
+      reply_markup: emptyKeyboard,
+    });
 
     await ctx.answerCallbackQuery();
   } catch (error) {
