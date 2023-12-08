@@ -358,7 +358,12 @@ bot.callbackQuery('cancel-support', async (ctx) => {
   });
 
   try {
-    await dropWaitingForAnswer(ctx);
+    const user = await User.findOne({ telegramId: ctx.from.id });
+
+    await User.findOneAndUpdate(
+      { telegramId: user.telegramId },
+      { waitingForSupportRequest: false, updatedAt: Date.now() },
+    );
     await ctx.callbackQuery.message.editText('Запрос отменён  ✅', {
       reply_markup: emptyKeyboard,
     });
